@@ -16,7 +16,9 @@ def sauvegarder_log_tatatoue(frame, user_id: int, statut: str, nom: str, confian
     Retourne le chemin de l'image sauvegardée.
     """
     os.makedirs(LOGS_DIR, exist_ok=True)
-    horodatage = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Inclut les microsecondes pour éviter les collisions de noms
+    # quand plusieurs logs sont générés dans la même seconde.
+    horodatage = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     nom_fichier = f"{LOGS_DIR}/log_{horodatage}_{statut}.png"
 
     # Sauvegarde temporaire de la frame brute

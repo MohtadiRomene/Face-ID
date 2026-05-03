@@ -152,6 +152,19 @@ class HistoriquePage(QWidget):
         splitter.setStretchFactor(1, 1)
         root.addWidget(splitter, 1)
 
+    def _resolve_log_path(self, row: int) -> str:
+        """
+        Retourne le vrai chemin du log lié à la ligne sélectionnée.
+        Utilise d'abord le chemin stocké en UserRole, sinon fallback logs/<nom>.
+        """
+        item = self._table.item(row, 0)
+        if item is None:
+            return ""
+        stored_path = item.data(Qt.UserRole)
+        if stored_path:
+            return stored_path
+        return os.path.join(LOGS_DIR, item.text())
+
     def rafraichir(self):
         self._table.setRowCount(0)
         counts = {"total": 0, "autorise": 0, "refuse": 0, "imposteur": 0}
@@ -176,9 +189,17 @@ class HistoriquePage(QWidget):
                     time_str = "—"
                 
                 statut = log.get("statut", "—").lower()
-                nom_fichier = f"log_{date_str}_{time_str}_{statut}.png"
-                
-                self._table.setItem(row, 0, QTableWidgetItem(nom_fichier))
+                image_path = log.get("image_path")
+                if image_path:
+                    nom_fichier = os.path.basename(image_path)
+                    log_path = image_path
+                else:
+                    nom_fichier = f"log_{date_str}_{time_str}_{statut}.png"
+                    log_path = os.path.join(LOGS_DIR, nom_fichier)
+
+                file_item = QTableWidgetItem(nom_fichier)
+                file_item.setData(Qt.UserRole, log_path)
+                self._table.setItem(row, 0, file_item)
                 self._table.setItem(row, 1, QTableWidgetItem(date_str[:4] + "-" + date_str[4:6] + "-" + date_str[6:8] if date_str != "—" else "—"))
                 self._table.setItem(row, 2, QTableWidgetItem(time_str[:2] + ":" + time_str[2:4] + ":" + time_str[4:6] if time_str != "—" else "—"))
                 
@@ -216,7 +237,9 @@ class HistoriquePage(QWidget):
 
                 row = self._table.rowCount()
                 self._table.insertRow(row)
-                self._table.setItem(row, 0, QTableWidgetItem(f))
+                file_item = QTableWidgetItem(f)
+                file_item.setData(Qt.UserRole, os.path.join(LOGS_DIR, f))
+                self._table.setItem(row, 0, file_item)
                 self._table.setItem(row, 1, QTableWidgetItem(date))
                 self._table.setItem(row, 2, QTableWidgetItem(heure))
 
@@ -239,8 +262,7 @@ class HistoriquePage(QWidget):
         sel = self._table.selectedItems()
         if not sel:
             return
-        nom_fichier = self._table.item(self._table.currentRow(), 0).text()
-        chemin = os.path.join(LOGS_DIR, nom_fichier)
+        chemin = self._resolve_log_path(self._table.currentRow())
         if os.path.exists(chemin):
             pix = QPixmap(chemin).scaled(
                 280, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -261,8 +283,7 @@ class HistoriquePage(QWidget):
         if not sel:
             QMessageBox.information(self, "Sélection", "Sélectionnez un log.")
             return
-        nom_fichier = self._table.item(self._table.currentRow(), 0).text()
-        chemin = os.path.join(LOGS_DIR, nom_fichier)
+        chemin = self._resolve_log_path(self._table.currentRow())
 
         try:
             from watermark.log_manager import verifier_log
@@ -320,7 +341,7 @@ class HistoriquePage(QWidget):
         if not sel:
             return
         nom_fichier = self._table.item(self._table.currentRow(), 0).text()
-        chemin = os.path.join(LOGS_DIR, nom_fichier)
+        chemin = self._resolve_log_path(self._table.currentRow())
         reply = QMessageBox.question(
             self, "Confirmer", f"Supprimer définitivement {nom_fichier} ?",
             QMessageBox.Yes | QMessageBox.No)
