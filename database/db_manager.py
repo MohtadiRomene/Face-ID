@@ -26,6 +26,18 @@ def init_db():
             photo_path TEXT
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS logs_reconnaissance (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER,
+            nom             TEXT NOT NULL,
+            statut          TEXT NOT NULL,
+            confiance       REAL,
+            date_heure      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            image_path      TEXT,
+            watermark_data  TEXT
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -67,3 +79,75 @@ def modifier_autorisation(uid, autorise: int):
     conn.execute("UPDATE utilisateurs SET autorise=? WHERE id=?", (autorise, uid))
     conn.commit()
     conn.close()
+
+
+# ── Fonctions pour les logs de reconnaissance ──────────────────────────
+def sauvegarder_log_reconnaissance(user_id, nom, statut, confiance=None, image_path=None, watermark_data=None):
+    """
+    Sauvegarde un log de reconnaissance faciale dans la base de données.
+    """
+    conn = _connect()
+    conn.execute(
+        """INSERT INTO logs_reconnaissance 
+           (user_id, nom, statut, confiance, image_path, watermark_data) 
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (user_id, nom, statut, confiance, image_path, watermark_data)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_tous_logs():
+    """
+    Récupère tous les logs de reconnaissance triés par date décroissante.
+    """
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT * FROM logs_reconnaissance ORDER BY date_heure DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_logs_par_statut(statut: str):
+    """
+    Récupère tous les logs avec un statut spécifique.
+    """
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT * FROM logs_reconnaissance WHERE statut=? ORDER BY date_heure DESC",
+        (statut,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_statistiques_logs():
+    """
+    Retourne les statistiques globales des logs.
+    """
+    conn = _connect()
+    stats = {}
+    total = conn.execute("SELECT COUNT(*) as cnt FROM logs_reconnaissance").fetchone()
+    stats["total"] = total["cnt"] if total else 0
+    
+    for st in ["autorise", "refuse", "imposteur"]:
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM logs_reconnaissance WHERE statut=?",
+            (st,)
+        ).fetchone()
+        stats[st] = row["cnt"] if row else 0
+    
+    conn.close()
+    return stats
+
+
+def supprimer_log(log_id):
+    """
+    Supprime un log de reconnaissance.
+    """
+    conn = _connect()
+    conn.execute("DELETE FROM logs_reconnaissance WHERE id=?", (log_id,))
+    conn.commit()
+    conn.close()
+

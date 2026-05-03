@@ -156,36 +156,80 @@ class HistoriquePage(QWidget):
         self._table.setRowCount(0)
         counts = {"total": 0, "autorise": 0, "refuse": 0, "imposteur": 0}
 
-        if not os.path.exists(LOGS_DIR):
-            return
+        # Essayer de lire depuis la base de données en priorité
+        try:
+            from database.db_manager import get_tous_logs, get_statistiques_logs
+            logs = get_tous_logs()
+            
+            for log in logs:
+                row = self._table.rowCount()
+                self._table.insertRow(row)
+                
+                # Extraire date et heure du timestamp
+                date_heure = log.get("date_heure", "—")
+                if date_heure and len(date_heure) >= 16:
+                    # Format: YYYY-MM-DD HH:MM:SS
+                    date_str = date_heure[:10].replace("-", "")
+                    time_str = date_heure[11:19].replace(":", "")[:6]
+                else:
+                    date_str = "—"
+                    time_str = "—"
+                
+                statut = log.get("statut", "—").lower()
+                nom_fichier = f"log_{date_str}_{time_str}_{statut}.png"
+                
+                self._table.setItem(row, 0, QTableWidgetItem(nom_fichier))
+                self._table.setItem(row, 1, QTableWidgetItem(date_str[:4] + "-" + date_str[4:6] + "-" + date_str[6:8] if date_str != "—" else "—"))
+                self._table.setItem(row, 2, QTableWidgetItem(time_str[:2] + ":" + time_str[2:4] + ":" + time_str[4:6] if time_str != "—" else "—"))
+                
+                stat_item = QTableWidgetItem(statut.upper())
+                stat_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignCenter)
+                colors = {"autorise": "#34D399", "refuse": "#FBBF24", "imposteur": "#F87171"}
+                stat_item.setForeground(QColor(colors.get(statut, "#6B7280")))
+                self._table.setItem(row, 3, stat_item)
+                self._table.setRowHeight(row, 48)
+                
+                counts["total"] += 1
+                if statut in counts:
+                    counts[statut] += 1
+            
+            # Obtenir les statistiques globales depuis la BD
+            stats = get_statistiques_logs()
+            counts = stats
+            
+        except Exception as e:
+            print(f"[WARN] Erreur lors de la lecture des logs depuis la BD: {e}")
+            # Fallback: lire depuis le filesystem
+            if not os.path.exists(LOGS_DIR):
+                return
 
-        fichiers = sorted(
-            [f for f in os.listdir(LOGS_DIR)
-             if f.endswith(".png") and not f.startswith("_")],
-            reverse=True)
+            fichiers = sorted(
+                [f for f in os.listdir(LOGS_DIR)
+                 if f.endswith(".png") and not f.startswith("_")],
+                reverse=True)
 
-        for f in fichiers:
-            parties = f.replace(".png", "").split("_")
-            date    = parties[1] if len(parties) > 1 else "—"
-            heure   = parties[2] if len(parties) > 2 else "—"
-            statut  = parties[3] if len(parties) > 3 else "—"
+            for f in fichiers:
+                parties = f.replace(".png", "").split("_")
+                date    = parties[1] if len(parties) > 1 else "—"
+                heure   = parties[2] if len(parties) > 2 else "—"
+                statut  = parties[3] if len(parties) > 3 else "—"
 
-            row = self._table.rowCount()
-            self._table.insertRow(row)
-            self._table.setItem(row, 0, QTableWidgetItem(f))
-            self._table.setItem(row, 1, QTableWidgetItem(date))
-            self._table.setItem(row, 2, QTableWidgetItem(heure))
+                row = self._table.rowCount()
+                self._table.insertRow(row)
+                self._table.setItem(row, 0, QTableWidgetItem(f))
+                self._table.setItem(row, 1, QTableWidgetItem(date))
+                self._table.setItem(row, 2, QTableWidgetItem(heure))
 
-            stat_item = QTableWidgetItem(statut.upper())
-            stat_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignCenter)
-            colors = {"autorise": "#34D399", "refuse": "#FBBF24", "imposteur": "#F87171"}
-            stat_item.setForeground(QColor(colors.get(statut, "#6B7280")))
-            self._table.setItem(row, 3, stat_item)
-            self._table.setRowHeight(row, 48)
+                stat_item = QTableWidgetItem(statut.upper())
+                stat_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignCenter)
+                colors = {"autorise": "#34D399", "refuse": "#FBBF24", "imposteur": "#F87171"}
+                stat_item.setForeground(QColor(colors.get(statut, "#6B7280")))
+                self._table.setItem(row, 3, stat_item)
+                self._table.setRowHeight(row, 48)
 
-            counts["total"] += 1
-            if statut in counts:
-                counts[statut] += 1
+                counts["total"] += 1
+                if statut in counts:
+                    counts[statut] += 1
 
         for key, val in counts.items():
             if key in self._stat_labels:

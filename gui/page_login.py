@@ -42,12 +42,24 @@ class RecognitionThread(QThread):
                 break
             try:
                 from recognition.recognizer import analyser_frame
+                from watermark.log_manager import sauvegarder_log_tatatoue
+                
                 frame_annote, resultats = analyser_frame(
                     frame.copy(), self._detecteur, self._modele)
                 self.frame_ready.emit(frame_annote, resultats)
+                
+                # Sauvegarder les logs pour chaque résultat
                 for r in resultats:
+                    sauvegarder_log_tatatoue(
+                        frame,
+                        user_id = r.get("user_id") or 0,
+                        statut  = r.get("statut", "inconnu"),
+                        nom     = r.get("nom", "Inconnu"),
+                        confiance = r.get("confiance")
+                    )
                     self.result_ready.emit(r)
-            except Exception:
+            except Exception as e:
+                print(f"[ERROR] {e}")
                 self.frame_ready.emit(frame, [])
             self.msleep(30)
         cap.release()
@@ -355,8 +367,6 @@ class LoginPage(QWidget):
             self._cnt["autorise"] += 1
             self._stat_ok._value_label.setText(str(self._cnt["autorise"]))
             self._log_event("autorise", nom)
-            # Sauvegarder log tatoué en thread
-            self._save_log(r)
 
         elif statut == "refuse":
             self._avatar.setText("!")
@@ -370,7 +380,6 @@ class LoginPage(QWidget):
             self._cnt["refuse"] += 1
             self._stat_refus._value_label.setText(str(self._cnt["refuse"]))
             self._log_event("refuse", nom)
-            self._save_log(r)
 
         elif statut == "imposteur":
             self._avatar.setText("✘")
@@ -384,17 +393,10 @@ class LoginPage(QWidget):
             self._cnt["imposteur"] += 1
             self._stat_imp._value_label.setText(str(self._cnt["imposteur"]))
             self._log_event("imposteur", "Inconnu")
-            self._save_log(r)
 
     def _on_error(self, msg):
         self._status_banner.set_state("erreur", msg)
         self._arreter()
-
-    def _save_log(self, r):
-        import threading
-        from watermark.log_manager import sauvegarder_log_tatatoue
-        # On a besoin d'une frame — elle n'est pas dans r, on ne peut pas la sauvegarder ici sans refactoring.
-        # Voir reconnizer.py qui s'en charge déjà via le thread.
 
     def _log_event(self, statut, nom):
         import datetime

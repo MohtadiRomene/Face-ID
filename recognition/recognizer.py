@@ -86,13 +86,14 @@ def lancer_reconnaissance():
         frame, resultats = analyser_frame(frame, detecteur, modele)
 
         for r in resultats:
-            if r["statut"] in ("refuse", "imposteur"):
-                sauvegarder_log_tatatoue(
-                    frame,
-                    user_id = r["user_id"] or 0,
-                    statut  = r["statut"],
-                    nom     = r["nom"]
-                )
+            # Sauvegarder TOUS les logs (autorise, refuse, imposteur)
+            sauvegarder_log_tatatoue(
+                frame,
+                user_id = r["user_id"] or 0,
+                statut  = r["statut"],
+                nom     = r["nom"],
+                confiance = r.get("confiance")
+            )
 
         for r in resultats:
             print(f"  → {r['nom']} | {r['statut']} | confiance={r['confiance']:.1f}")

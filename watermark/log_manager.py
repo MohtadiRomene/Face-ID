@@ -5,12 +5,14 @@ from watermark.watermarker import encoder, decoder
 
 LOGS_DIR = "logs"
 
-def sauvegarder_log_tatatoue(frame, user_id: int, statut: str, nom: str) -> str:
+def sauvegarder_log_tatatoue(frame, user_id: int, statut: str, nom: str, confiance: float = None) -> str:
     """
     Sauvegarde une frame capturée avec un watermark LSB contenant :
     - l'identifiant de l'utilisateur
     - le statut (autorise / refuse / imposteur)
     - la date et l'heure
+    
+    Sauvegarde aussi les données en base de données.
     Retourne le chemin de l'image sauvegardée.
     """
     os.makedirs(LOGS_DIR, exist_ok=True)
@@ -29,11 +31,27 @@ def sauvegarder_log_tatatoue(frame, user_id: int, statut: str, nom: str) -> str:
     os.remove(fichier_temp)
 
     if succes:
-        return nom_fichier
+        image_path = nom_fichier
     else:
         # Fallback : sauvegarde sans tatouage
         cv2.imwrite(nom_fichier, frame)
-        return nom_fichier
+        image_path = nom_fichier
+
+    # Sauvegarde en base de données
+    try:
+        from database.db_manager import sauvegarder_log_reconnaissance
+        sauvegarder_log_reconnaissance(
+            user_id=user_id,
+            nom=nom,
+            statut=statut,
+            confiance=confiance,
+            image_path=image_path,
+            watermark_data=message if succes else None
+        )
+    except Exception as e:
+        print(f"[WARN] Erreur lors de la sauvegarde en BD: {e}")
+
+    return image_path
 
 def verifier_log(image_path: str) -> dict | None:
     """
