@@ -1,7 +1,8 @@
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QFrame, QTableWidget, QTableWidgetItem,
-                             QSplitter, QMessageBox, QHeaderView, QAbstractItemView)
+                             QSplitter, QMessageBox, QHeaderView, QAbstractItemView,
+                             QComboBox)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QPixmap, QColor
 
@@ -69,12 +70,29 @@ class HistoriquePage(QWidget):
         btn_verify.setFixedHeight(40)
         btn_verify.clicked.connect(self._verifier)
 
+        self._combo_attaque = QComboBox()
+        self._combo_attaque.setFixedHeight(40)
+        self._combo_attaque.setMinimumWidth(220)
+        try:
+            from watermark.attacks import lister_attaques
+            for cle, libelle in lister_attaques():
+                self._combo_attaque.addItem(libelle, cle)
+        except Exception:
+            self._combo_attaque.addItem("Compression JPEG", "jpeg")
+
+        btn_attaque = QPushButton("Appliquer attaque")
+        btn_attaque.setObjectName("btn_ghost")
+        btn_attaque.setFixedHeight(40)
+        btn_attaque.clicked.connect(self._appliquer_attaque)
+
         btn_del = QPushButton("Supprimer")
         btn_del.setObjectName("btn_danger")
         btn_del.setFixedHeight(40)
         btn_del.clicked.connect(self._supprimer)
 
         btn_row.addWidget(btn_verify)
+        btn_row.addWidget(self._combo_attaque)
+        btn_row.addWidget(btn_attaque)
         btn_row.addStretch()
         btn_row.addWidget(btn_del)
         left_lay.addLayout(btn_row)
@@ -278,25 +296,21 @@ class HistoriquePage(QWidget):
         self._wm_placeholder.setAlignment(Qt.AlignCenter)
         self._wm_lay.addWidget(self._wm_placeholder)
 
-    def _verifier(self):
-        sel = self._table.selectedItems()
-        if not sel:
-            QMessageBox.information(self, "Sélection", "Sélectionnez un log.")
-            return
-        chemin = self._resolve_log_path(self._table.currentRow())
-
-        try:
-            from watermark.log_manager import verifier_log
-            infos = verifier_log(chemin)
-        except Exception as e:
-            QMessageBox.critical(self, "Erreur", str(e))
-            return
-
-        # Vider panneau watermark
+    def _afficher_resultat_watermark(self, infos, titre_extra: str = ""):
+        """Affiche le resultat de verification LSB dans le panneau droit."""
         for i in reversed(range(self._wm_lay.count())):
             w = self._wm_lay.itemAt(i).widget()
             if w:
                 w.deleteLater()
+
+        if titre_extra:
+            extra = QLabel(titre_extra)
+            extra.setStyleSheet(
+                "color:#9CA3AF;font-size:11px;background:transparent;"
+                "padding-bottom:4px;"
+            )
+            extra.setWordWrap(True)
+            self._wm_lay.addWidget(extra)
 
         if infos:
             # Bandeau succès
@@ -335,6 +349,76 @@ class HistoriquePage(QWidget):
             err.setWordWrap(True)
             err.setAlignment(Qt.AlignCenter)
             self._wm_lay.addWidget(err)
+
+    def _verifier(self):
+        sel = self._table.selectedItems()
+        if not sel:
+            QMessageBox.information(self, "Sélection", "Sélectionnez un log.")
+            return
+        chemin = self._resolve_log_path(self._table.currentRow())
+        if not os.path.exists(chemin):
+            QMessageBox.warning(self, "Fichier", "Image introuvable.")
+            return
+
+        try:
+            from watermark.log_manager import verifier_log
+            infos = verifier_log(chemin)
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", str(e))
+            return
+
+        self._afficher_resultat_watermark(infos)
+
+    def _appliquer_attaque(self):
+        sel = self._table.selectedItems()
+        if not sel:
+            QMessageBox.information(self, "Sélection", "Sélectionnez un log.")
+            return
+        chemin = self._resolve_log_path(self._table.currentRow())
+        if not os.path.exists(chemin):
+            QMessageBox.warning(self, "Fichier", "Image introuvable.")
+            return
+
+        type_attaque = self._combo_attaque.currentData()
+        libelle = self._combo_attaque.currentText()
+
+        try:
+            from watermark.attacks import appliquer_attaque, verifier_apres_attaque
+            from watermark.log_manager import verifier_log
+
+            infos_avant = verifier_log(chemin)
+            chemin_attaque = appliquer_attaque(chemin, type_attaque)
+            verif = verifier_apres_attaque(chemin_attaque)
+            infos_apres = verif["infos"]
+
+            if os.path.exists(chemin_attaque):
+                pix = QPixmap(chemin_attaque).scaled(
+                    280, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self._preview.setPixmap(pix)
+
+            titre = (
+                f"Attaque : {libelle}\n"
+                f"Fichier : {os.path.basename(chemin_attaque)}"
+            )
+            self._afficher_resultat_watermark(infos_apres, titre_extra=titre)
+
+            if infos_avant and not infos_apres:
+                QMessageBox.warning(
+                    self,
+                    "Watermark detruit",
+                    f"L'attaque « {libelle} » a supprime ou corrompu "
+                    "le watermark LSB.\n\n"
+                    f"Image attaquee : {chemin_attaque}",
+                )
+            elif infos_apres:
+                QMessageBox.information(
+                    self,
+                    "Watermark resistant",
+                    f"L'attaque « {libelle} » n'a pas detruit le watermark.\n\n"
+                    f"Image : {chemin_attaque}",
+                )
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur attaque", str(e))
 
     def _supprimer(self):
         sel = self._table.selectedItems()

@@ -47,7 +47,7 @@ def encoder(image_path: str, message: str, output_path: str) -> bool:
         return False
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     cv2.imwrite(output_path, img_tatouee)
-    print(f"[WATERMARK] Image tatouée → {output_path}")
+    print(f"[WATERMARK] Image tatouee -> {output_path}")
     return True
 
 def decoder(image_path: str) -> str | None:
