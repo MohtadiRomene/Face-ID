@@ -2,6 +2,7 @@ import cv2
 import os
 import datetime
 from watermark.watermarker import encoder, decoder
+from notifications.email_notifier import envoyer_notification_acces
 
 LOGS_DIR = "logs"
 
@@ -52,6 +53,19 @@ def sauvegarder_log_tatatoue(frame, user_id: int, statut: str, nom: str, confian
         )
     except Exception as e:
         print(f"[WARN] Erreur lors de la sauvegarde en BD: {e}")
+
+    # Notification email SMTP (non bloquante, optionnelle).
+    # Déclenchée pour les statuts sensibles (refuse/imposteur selon config).
+    try:
+        envoyer_notification_acces(
+            statut=statut,
+            nom=nom,
+            user_id=user_id,
+            confiance=confiance,
+            image_path=image_path,
+        )
+    except Exception as e:
+        print(f"[WARN] Erreur notification email: {e}")
 
     return image_path
 

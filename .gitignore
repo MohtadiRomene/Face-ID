@@ -1,0 +1,32 @@
+# Secrets & local config
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+
+# Runtime data (local only)
+biometrie.db
+*.db-journal
+logs/
+models/*.yml
+faces/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Validation scratch (local test reports)
+VALIDATION_*.txt
+FICHIERS_CHANGES.txt
+RESUME_VALIDATION.py
+rapport_validation.py

@@ -363,7 +363,11 @@ class LoginPage(QWidget):
             self._id_badge.setStyleSheet(
                 "background:#0A2A18;color:#34D399;border-radius:12px;"
                 "padding:4px 12px;font-size:11px;font-weight:600;")
-            self._id_detail.setText(f"Confiance : {r.get('confiance', 0):.1f}")
+            score = r.get("score_pct")
+            if score is None:
+                dist = r.get("confiance", 0)
+                score = max(0.0, min(100.0, (1.0 - dist / 62.0) * 100.0))
+            self._id_detail.setText(f"Correspondance : {score:.0f} %")
             self._cnt["autorise"] += 1
             self._stat_ok._value_label.setText(str(self._cnt["autorise"]))
             self._log_event("autorise", nom)
