@@ -13,7 +13,7 @@ from watermark.log_manager import sauvegarder_log_tatatoue
 # LBPH OpenCV : distance CHI-SQUARE — plus BAS = meilleur match (pas un pourcentage).
 # SEUIL_LBPH est aussi appliqué via model.setThreshold() à l'entraînement / chargement.
 SEUIL_AUTORISE = SEUIL_LBPH   # distance LBPH max pour accepter
-SEUIL_INCONNU   = 90          # au-dessus → refus (visage non reconnu)
+SEUIL_INCONNU   = 54          # au-dessus → refus (visage non reconnu)
 SEUIL_IMPOSTEUR = 120         # ≥ 120 → alerte imposteur
 
 _DISTANCE_REJET = 1e6
